@@ -61,7 +61,6 @@ Tabs._1:AddButton({
     return player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
 end
 
--- Função para encontrar todos os Titans no container
 local function getAllTitans()
     local titansContainer = workspace:FindFirstChild("Titans")
     if not titansContainer then
@@ -78,8 +77,110 @@ local function getAllTitans()
     return titans
 end
 
+local function attackTitan(titan)
+    local replicatedStorage = game:GetService("ReplicatedStorage")
+    local napeHitbox = titan:FindFirstChild("Hitboxes") and titan.Hitboxes.Hit:FindFirstChild("Nape")
+
+    if napeHitbox then
+        local attackArgs = {
+            [1] = "Attacks",
+            [2] = "Slash",
+            [3] = true
+        }
+        local hitboxArgs = {
+            [1] = "Hitboxes",
+            [2] = "Register",
+            [3] = napeHitbox,
+            [4] = 225483, -- RN_TEAM
+            [5] = 925011  -- RN_TEAM
+        }
+
+        replicatedStorage.Assets.Remotes.POST:FireServer(unpack(attackArgs))
+        replicatedStorage.Assets.Remotes.GET:InvokeServer(unpack(hitboxArgs))
+
+        print("Atacou e registrou hitbox no Titã: " .. titan.Name)
+    else
+        warn("Nape hitbox não encontrada no Titã: " .. titan.Name)
+    end
+end
+
+local function attackAllTitans()
+    while true do
+        if not isPlayerAlive() then
+            warn("Jogador morto ou personagem inválido.")
+            wait(1)
+            break
+        end
+
+        local titans = getAllTitans()
+
+        for _, titan in ipairs(titans) do
+            coroutine.wrap(attackTitan)(titan)
+        end
+
+        wait(0.1)
+    end
+end
+
+attackAllTitans()
+    end
+})
+
+Tabs._1:AddButton({
+    Title = "auto kill V2",
+    Description = "matar todos os titãs perto de vc",
+    Callback = function()
+       -- Limite de distância para atacar o Titã (em studs)
+local MAX_ATTACK_DISTANCE = 200
+
+-- Função para verificar se o jogador está vivo
+local function isPlayerAlive()
+    local player = game.Players.LocalPlayer
+    return player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
+end
+
+-- Função para encontrar todos os Titans no container
+local function getAllTitans()
+    local titansContainer = workspace:FindFirstChild("Titans")
+    if not titansContainer then
+        warn("Container 'Titans' não encontrado no Workspace.")
+        return {}
+    end
+
+    local titans = {}
+    for _, titan in ipairs(titansContainer:GetChildren()) do
+        -- Adicionado verificação de Humanoid.Health para só considerar Titãs vivos
+        local humanoid = titan:FindFirstChild("Humanoid")
+        if titan:IsA("Model") and humanoid and humanoid.Health > 0 then
+            table.insert(titans, titan)
+        end
+    end
+    return titans
+end
+
 -- Função para atacar um Titan específico
 local function attackTitan(titan)
+    local player = game.Players.LocalPlayer
+    local character = player.Character
+    if not character then return end
+
+    local playerHumanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not playerHumanoidRootPart then return end
+
+    local titanHumanoidRootPart = titan:FindFirstChild("HumanoidRootPart")
+    if not titanHumanoidRootPart then
+        warn("HumanoidRootPart não encontrada no Titã: " .. titan.Name)
+        return
+    end
+
+    -- Calcula a distância entre o jogador e o Titã
+    local distance = (playerHumanoidRootPart.Position - titanHumanoidRootPart.Position).Magnitude
+
+    if distance > MAX_ATTACK_DISTANCE then
+        -- print("Titã " .. titan.Name .. " muito longe (" .. math.floor(distance) .. " studs). Não atacando.")
+        return -- Não ataca se estiver muito longe
+    end
+
     local replicatedStorage = game:GetService("ReplicatedStorage")
     local napeHitbox = titan:FindFirstChild("Hitboxes") and titan.Hitboxes.Hit:FindFirstChild("Nape")
 
@@ -102,28 +203,31 @@ local function attackTitan(titan)
         replicatedStorage.Assets.Remotes.POST:FireServer(unpack(attackArgs))
         replicatedStorage.Assets.Remotes.GET:InvokeServer(unpack(hitboxArgs))
 
-        print("Atacou e registrou hitbox no Titã: " .. titan.Name)
+        print("Atacou e registrou hitbox no Titã: " .. titan.Name .. " (Distância: " .. math.floor(distance) .. " studs)")
     else
         warn("Nape hitbox não encontrada no Titã: " .. titan.Name)
     end
 end
 
--- Função principal para atacar todos os Titans simultaneamente
+-- Função principal para atacar todos os Titans
 local function attackAllTitans()
     while true do
         -- Verifica se o jogador está vivo
         if not isPlayerAlive() then
-            warn("Jogador morto ou personagem inválido.")
-            wait(1)
-            break
+            warn("Jogador morto ou personagem inválido. Reiniciando em 5 segundos...")
+            wait(5) -- Espera mais antes de tentar novamente ou sair
+            -- Se o jogador morreu, talvez você queira parar o script ou esperar o respawn.
+            -- Para este exemplo, vamos esperar e continuar o loop, assumindo que ele respawna.
+            -- Se você quiser que o script pare completamente, use 'break' aqui.
+            -- break
         end
 
-        -- Obtém todos os Titans
+        -- Obtém todos os Titans (apenas os vivos)
         local titans = getAllTitans()
 
-        -- Itera sobre todos os Titans e os ataca simultaneamente
+        -- Itera sobre todos os Titans e os ataca
         for _, titan in ipairs(titans) do
-            coroutine.wrap(attackTitan)(titan) -- Executa em uma nova thread
+            attackTitan(titan)
         end
 
         wait(0.1) -- Pequeno delay para evitar sobrecarga
@@ -132,24 +236,20 @@ end
 
 -- Inicia o script de ataque
 attackAllTitans()
-    end
 })
-
 Tabs._1:AddButton({
     Title = "teleporte titã",
     Description = "um teleporte que vai em todos os titãs",
     Callback = function()
-       local teleportHeight = 160 -- Altura acima do Titan (ajuste conforme necessário)
+       local teleportHeight = 160
 
--- Variáveis
 local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-local titansFolder = workspace:FindFirstChild("Titans") -- Pasta onde os Titans estão
-local titans = {} -- Lista de Titans
-local usedTitans = {} -- Titans já teleportados
+local titansFolder = workspace:FindFirstChild("Titans")
+local titans = {}
+local usedTitans = {}
 
--- Função para encontrar todos os Titans na pasta
 local function findTitans()
     titans = {}
     if titansFolder then
@@ -163,28 +263,22 @@ local function findTitans()
     end
 end
 
--- Função para teleportar para um Titan e esperar ele morrer (Humanoid ser removido)
 local function teleportAndWaitForDeath(titan)
     local titanRootPart = titan.HumanoidRootPart
     local titanHumanoid = titan.Humanoid
     local targetPosition = titanRootPart.Position + Vector3.new(0, teleportHeight, 0)
     
-    -- Teleporta para o Titan
     humanoidRootPart.CFrame = CFrame.new(targetPosition)
     
-    -- Marca o Titan como usado
     table.insert(usedTitans, titan)
     
-    -- Espera até que o Humanoid do Titan seja removido (Titan morrer)
     while titan:FindFirstChild("Humanoid") do
         wait(0)
     end
     
-    -- Espera um pouco antes de verificar o próximo Titan
     wait(1)
 end
 
--- Função para verificar se um Titan já foi usado
 local function isTitanUsed(titan)
     for _, usedTitan in pairs(usedTitans) do
         if usedTitan == titan then
@@ -194,24 +288,20 @@ local function isTitanUsed(titan)
     return false
 end
 
--- Função para manter o jogador parado no ar
 local function keepPlayerFrozen()
     while true do
-        humanoidRootPart.Velocity = Vector3.new(0, 0, 0) -- Zera a velocidade para evitar quedas
-        humanoidRootPart.RotVelocity = Vector3.new(0, 0, 0) -- Zera a rotação
+        humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+        humanoidRootPart.RotVelocity = Vector3.new(0, 0, 0)
         wait(0.1)
     end
 end
 
--- Função principal
 local function main()
-    -- Inicia a função para manter o jogador parado no ar
     coroutine.wrap(keepPlayerFrozen)()
     
     while true do
-        findTitans() -- Atualiza a lista de Titans
+        findTitans()
         
-        -- Verifica se há Titans novos
         for _, titan in pairs(titans) do
             if not isTitanUsed(titan) then
                 teleportAndWaitForDeath(titan)
@@ -219,16 +309,14 @@ local function main()
             end
         end
         
-        -- Se todos os Titans foram usados, reinicia a lista
         if #usedTitans >= #titans then
             usedTitans = {}
         end
         
-        wait(0.5) -- Espera antes de verificar novamente
+        wait(0.5)
     end
 end
 
--- Inicia o script
 main()
     end
 })
@@ -289,7 +377,6 @@ local function unfreezePlayer()
     end
 end
 
--- Exemplo de uso
 local targetName = "Guard"
 local altura = 150
 
