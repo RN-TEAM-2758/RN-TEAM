@@ -130,10 +130,7 @@ Tabs._1:AddButton({
     Title = "auto kill V2",
     Description = "matar todos os titãs perto de vc",
     Callback = function()
-       -- Limite de distância para atacar o Titã (em studs)
-local MAX_ATTACK_DISTANCE = 200
-
--- Função para verificar se o jogador está vivo
+       local MAX_ATTACK_DISTANCE = 200
 local function isPlayerAlive()
     local player = game.Players.LocalPlayer
     return player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
